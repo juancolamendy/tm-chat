@@ -14,16 +14,16 @@ type Config struct {
 func GetConfig() *Config {
 	config := &Config{}
 
-	flag.StringVar(&config.Host, "host", "localhost", "Server host")
-	flag.StringVar(&config.Port, "port", "9090", "Server port")
-	flag.BoolVar(&config.Server, "server", false, "Is only server")
+	flag.StringVar(&config.Host, "host", "localhost", "host")
+	flag.StringVar(&config.Port, "port", "9090", "port")
+	flag.BoolVar(&config.Server, "server", false, "server mode")
 	flag.Parse()
 
 	return config
 }
 
 func (c *Config) Dump() {
-	log.Printf("Config: Host: %s", c.Host)
-	log.Printf("Config: Port: %s", c.Port)
-	log.Printf("Config: Server: %t", c.Server)
+	log.Printf("config: Host: %s", c.Host)
+	log.Printf("config: Port: %s", c.Port)
+	log.Printf("config: Server: %t", c.Server)
 }
