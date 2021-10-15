@@ -2,52 +2,56 @@ package server
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"time"	
+	"time"
+	"bufio"
 )
 
+type ConnHandler func (bufin *bufio.Reader, bufout *bufio.Writer, address string, ts int64)
+
 type ChatServer struct {
-	port string
-	host string
+	port        string
+	host        string
+	connHandler ConnHandler
 }
 
 type Opts struct {
-	Port string
-	Host string
+	Port        string
+	Host        string
+	ConnHandler ConnHandler
 }
 
 func NewChatServer(opts *Opts) *ChatServer {
 	return &ChatServer{
-		port: opts.Port,
-		host: opts.Host,
+		port:        opts.Port,
+		host:        opts.Host,
+		connHandler: opts.ConnHandler,
 	}
 }
 
-func (s *ChatServer) Init() {
+func (s *ChatServer) Init() {	
 	address := fmt.Sprintf("%s:%s", s.host, s.port)
+	log.Printf("initing server on address %s", address)
 	listener, err := net.Listen("tcp", address)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalf("error listening - %+v",err)
 	}
+	log.Printf("server initiated on address %s", address)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
-			log.Print(err) // e.g., connection aborted
+			log.Printf("conection error - %+v", err)
 			continue
 		}
-		handleConn(conn)
+		go s.handleConn(conn, bufio.NewReader(conn), bufio.NewWriter(conn), conn.RemoteAddr().String(), time.Now().Unix())
 	}	
 }
 
-func handleConn(c net.Conn) {
+func (s *ChatServer) handleConn(c net.Conn, bufin *bufio.Reader, bufout *bufio.Writer, address string, ts int64) {
 	defer c.Close()
-	for {
-		_, err := io.WriteString(c, time.Now().Format("15:04:05\n"))
-		if err != nil {
-			return
-		}
-		time.Sleep(1 * time.Second)
+
+	if s.connHandler != nil {
+		s.connHandler(bufin, bufout, address, ts)
 	}
 }
