@@ -8,6 +8,19 @@ import (
 	"time"
 )
 
+type ClientEventType int32
+
+const (	
+	ClientEventType_StopProcessing  ClientEventType = 1
+	ClientEventType_Message         ClientEventType = 2
+)
+
+type ClientEvent struct {
+	ClientEventType ClientEventType
+	Payload        interface{}
+	ResCh          chan interface{}
+}
+
 type ChatClient struct {
 	port string
 	host string
@@ -18,8 +31,8 @@ type ChatClient struct {
 	Address string
 	Ts int64
 
-	InChan chan string
-	OutChan chan string
+	InChan chan *ClientEvent
+	OutChan chan *ClientEvent
 	closeChan chan bool
 }
 
@@ -38,12 +51,20 @@ func NewChatClient(opts *Opts) *ChatClient {
 func (c *ChatClient) Init() error {
 	err := c.open()
 	if err != nil {
-		log.Printf("error on opening - %+v", err)
+		log.Printf("client - error on opening - %+v", err)
 		return err
 	}
 
 	// goroutine - read from socket and write/pipe to OutChan
-	go func(outChan chan string) {
+	go func(outChan chan *ClientEvent) {
+		defer func() {
+			// recover from panic and releasing resources
+			if r := recover(); r != nil {
+				log.Printf("client - writeToOutChan recovered - error: %+v\n", r)
+			}
+			c.closeChan <- true
+		}()
+
 		for {
 			text, err := c.Bufin.ReadString('\n')
 			if err != nil {
@@ -53,15 +74,34 @@ func (c *ChatClient) Init() error {
 			}
 			log.Printf("client - received: %s", text)
 			text = text[:len(text)-1]
-			outChan <- text
+			outChan <- &ClientEvent {
+				ClientEventType: ClientEventType_Message,
+				Payload: text,
+			}
 		}
 	}(c.OutChan)
 
 	// goroutine - read from InChan and write/pipe to the socket
-	go func(inChan chan string) {
+	go func(inChan chan *ClientEvent) {
+		defer func() {
+			// recover from panic and releasing resources
+			if r := recover(); r != nil {
+				log.Printf("client - readFromInChan recovered - error: %+v\n", r)
+			}
+			c.closeChan <- true
+		}()
+
 		for {
 			select {
-			case text := <- inChan:
+			case evt := <- inChan:
+				if evt.ClientEventType != ClientEventType_Message {
+					continue
+				}
+				text, ok := evt.Payload.(string)
+				if !ok {
+					continue
+				}
+
 				log.Printf("client - sending: %s", text)
 				_, err := c.Bufout.WriteString(fmt.Sprintf("%s\n",text))
 				if err != nil {
@@ -83,7 +123,11 @@ func (c *ChatClient) Init() error {
 	go func() {
 		select {
 		case <- c.closeChan:
+			log.Printf("client - closing")
 			c.close()
+			c.OutChan <- &ClientEvent {
+				ClientEventType: ClientEventType_StopProcessing,
+			}			
 			return			
 		}
 	}()
@@ -103,8 +147,8 @@ func (c *ChatClient) open() error {
 	c.Bufout = bufio.NewWriter(conn)
 	c.Address = conn.RemoteAddr().String()
 	c.Ts = time.Now().Unix()
-	c.InChan = make(chan string)
-	c.OutChan = make(chan string)
+	c.InChan = make(chan *ClientEvent)
+	c.OutChan = make(chan *ClientEvent)
 	c.closeChan = make(chan bool)
 
 	return nil

@@ -62,12 +62,12 @@ func (s *ChatServer) handleConn(c net.Conn, bufin *bufio.Reader, bufout *bufio.W
 			return
 		}		
 		log.Printf("server - read text: %s", text)
-		
 		// trim \n
 		text = text[:len(text)-1]
 
 		// write text with \n
-		n, err := bufout.WriteString(fmt.Sprintf("server echo:%s\n",text))
+		out := fmt.Sprintf("server echo:%s\n",text)
+		_, err = bufout.WriteString(out)
 		if err != nil {
 			log.Printf("server - error writing %+v", err)
 			return
@@ -78,6 +78,6 @@ func (s *ChatServer) handleConn(c net.Conn, bufin *bufio.Reader, bufout *bufio.W
 			log.Printf("server - error writing %+v", err)
 			return
 		}
-		log.Printf("server - written %d bytes", n)
+		log.Printf("server - written %s", out)
 	}
 }

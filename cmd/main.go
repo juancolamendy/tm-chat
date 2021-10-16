@@ -30,8 +30,7 @@ func main() {
 		client := client.NewChatClient(opts)
 		err := client.Init()
 		if err != nil {
-			log.Printf("Error init client - %v", err)
-			return
+			log.Fatalf("app - error init client - %v", err)
 		}
 
 		// launch shell
