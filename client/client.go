@@ -6,6 +6,8 @@ import (
 	"bufio"
 	"fmt"
 	"time"
+
+	"github.com/juancolamendy/tm-chat/utils/ioutils"
 )
 
 type ClientEventType int32
@@ -66,14 +68,13 @@ func (c *ChatClient) Init() error {
 		}()
 
 		for {
-			text, err := c.Bufin.ReadString('\n')
+			text, err := ioutils.ReceiveString(c.Bufin)
 			if err != nil {
-				log.Printf("client - error reading %+v", err)
+				log.Printf("client - error receiving %+v", err)
 				c.closeChan <- true
 				return
 			}
 			log.Printf("client - received: %s", text)
-			text = text[:len(text)-1]
 			outChan <- &ClientEvent {
 				ClientEventType: ClientEventType_Message,
 				Payload: text,
@@ -103,15 +104,9 @@ func (c *ChatClient) Init() error {
 				}
 
 				log.Printf("client - sending: %s", text)
-				_, err := c.Bufout.WriteString(fmt.Sprintf("%s\n",text))
+				err := ioutils.SendString(c.Bufout, text)
 				if err != nil {
-					log.Printf("client - error writing %+v", err)
-					c.closeChan <- true
-					return
-				}
-				err = c.Bufout.Flush()
-				if err != nil {
-					log.Printf("client - error flushing %+v", err)
+					log.Printf("client - error sending %+v", err)
 					c.closeChan <- true
 					return
 				}

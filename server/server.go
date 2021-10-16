@@ -6,6 +6,8 @@ import (
 	"net"
 	"time"
 	"bufio"
+
+	"github.com/juancolamendy/tm-chat/utils/ioutils"
 )
 
 type ChatServer struct {
@@ -56,28 +58,20 @@ func (s *ChatServer) handleConn(c net.Conn, bufin *bufio.Reader, bufout *bufio.W
 	log.Printf("server - accepted connection from %s at %d", address, ts)
 	for {
 		// read text ending with \n
-		text, err := bufin.ReadString('\n')
+		text, err := ioutils.ReceiveString(bufin)
 		if err != nil {
-			log.Printf("server - error reading %+v", err)
+			log.Printf("server - error receiving %+v", err)
 			return
 		}		
-		log.Printf("server - read text: %s", text)
-		// trim \n
-		text = text[:len(text)-1]
+		log.Printf("server - received text: %s", text)
 
 		// write text with \n
-		out := fmt.Sprintf("server echo:%s\n",text)
-		_, err = bufout.WriteString(out)
+		out := fmt.Sprintf("server echo:%s",text)
+		err = ioutils.SendString(bufout, out)
 		if err != nil {
-			log.Printf("server - error writing %+v", err)
+			log.Printf("server - error sending %+v", err)
 			return
 		}
-		// flush the buffer
-		err = bufout.Flush()
-		if err != nil {
-			log.Printf("server - error writing %+v", err)
-			return
-		}
-		log.Printf("server - written %s", out)
+		log.Printf("server - sent %s", out)
 	}
 }
