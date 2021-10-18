@@ -62,8 +62,15 @@ func (s *ChatServer) handleConn(c net.Conn, bufin *bufio.Reader, bufout *bufio.W
 		if err != nil {
 			log.Printf("server - error receiving %+v", err)
 			return
-		}		
+		}
+		
 		log.Printf("server - received text: %s", text)
+		cmd, err := parseToCommand(text)
+		if err != nil {
+			log.Printf("server - error parsing commands %+v", err)
+			continue
+		}
+		log.Printf("server - command: %+v", cmd)
 
 		// write text with \n
 		out := fmt.Sprintf("server echo:%s",text)
